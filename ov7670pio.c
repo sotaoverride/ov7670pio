@@ -15,9 +15,10 @@
 #include "hardware/dma.h"
 #include "hardware/irq.h"
 #include "hardware/pio.h"
+#include "ov7670.h"
 // Our assembled program:
 #include "ov7670.pio.h"
-#define CAMERA_XCLK_PIN 2
+#define CAMERA_XCLK_PIN 21
 #define XCLK_DIVIDER    9
 #define CAMERA_SDA      0
 #define CAMERA_SCL      1
@@ -40,13 +41,13 @@ void main(){
     // memory. This SDK function will find a location (offset) in the
     // instruction memory where there is enough space for our program. We need
     // to remember this location!
-    uint offset = pio_add_program(pio, &hello_program);
+    uint offset = pio_add_program(pio, &ov7670_program);
 
     // Find a free state machine on our chosen PIO (erroring if there are
     // none). Configure it to run our program, and start it, using the
     // helper function we included in our .pio file.
     uint sm = pio_claim_unused_sm(pio, true);
-    hello_program_init(pio, sm, offset, PICO_DEFAULT_LED_PIN);
+    ov7670_program_init(pio, sm, offset, PICO_DEFAULT_LED_PIN);
 
     // The state machine is now running. Any value we push to its TX FIFO will
     // appear on the LED pin.
