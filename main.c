@@ -4,14 +4,12 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include "hardware/i2c.h"
 #include "hardware/pio.h"
 #include "hardware/dma.h"
 
-#include "pico/stdio.h"
+#include <stdio.h>
 #include "pico/stdlib.h"
 
 #include "camera.h"
@@ -74,7 +72,7 @@ int main() {
 	}
 	//unclaim all DMA chans uncles code might have claimed....
 
-	dma_unclaim_mask (0xffffffff);
+	dma_unclaim_mask (0x0000000f);
 
 	//clear all of PIOs setup by uncle (and their SMs as a result off)
 
@@ -93,7 +91,7 @@ int main() {
 	//sm_config_set_clkdiv(&c, 1.f);
 	camera_pio_init_gpios(CAMERA_PIO, sm, CAMERA_BASE_PIN);
 	pio_sm_set_enabled(CAMERA_PIO, sm, false);
-	uint8_t *capture_buf = malloc(176*1*30*sizeof(uint8_t));
+	uint8_t *capture_buf = malloc(width*height*sizeof(uint8_t));
 	hard_assert(capture_buf);
 	// Need to clear _input shift counter_, as well as FIFO, because there may be
 	// partial ISR contents left over from a previous run. sm_restart does this.
@@ -108,23 +106,50 @@ int main() {
 	dma_channel_configure(dma_chan, &cd,
 			capture_buf,        // Destination pointer
 			&pio0->rxf[sm],      // Source pointer
-			50, // Number of transfers
+			1, // Number of transfers
 			true                // Start immediately
 			);
 	pio_sm_init(CAMERA_PIO, sm, offset, &c);
 	pio_sm_set_enabled(CAMERA_PIO, sm, true);
 
+	uint8_t pattern[] =  " .:!()/|}-=+*#%@";
 	while (1) {
 		printf ("%s\n", "dump bytes read from d0 to d7....");
+		sleep_ms(1000);
 		gpio_put(LED_PIN, 1);
 		pio_sm_put_blocking(CAMERA_PIO, sm, width);
 		pio_sm_put_blocking(CAMERA_PIO, sm, height);
 		sleep_ms(3000);
 		gpio_put(LED_PIN, 0);
 		sleep_ms(3000);
+		//dma_channel_wait_for_finish_blocking(0);
 		int i;
-		for (i=0;i<50;i++) {
-	    		printf(" byte %d = value: %d\n", i , capture_buf[i]);
+		for(i=0;i<height;i++){
+
+			for (int j=0;j<width;j++) {
+				printf("%c", pattern[capture_buf[(i*width)+j] >> 4] );
+				//printf(" byte %d = value: %d\n", i , capture_buf[i]);
+			}
+			printf("%s\n", "");
 		}
+		pio_sm_clear_fifos(CAMERA_PIO, sm);
+		pio_sm_restart(CAMERA_PIO, sm);
+
+		dma_unclaim_mask (0x0000000f);
+		dma_channel_config cd = dma_channel_get_default_config(dma_chan);
+		channel_config_set_read_increment(&c, false);
+		channel_config_set_write_increment(&c, true);
+		channel_config_set_dreq(&c, pio_get_dreq(CAMERA_PIO, sm, false));
+	dma_channel_configure(dma_chan, &cd,
+			capture_buf,        // Destination pointer
+			&pio0->rxf[sm],      // Source pointer
+			1, // Number of transfers
+			true                // Start immediately
+			);
+	pio_sm_init(CAMERA_PIO, sm, offset, &c);
+	pio_sm_set_enabled(CAMERA_PIO, sm, true);
+	free(capture_buf);
+	capture_buf = malloc(width*height*sizeof(uint8_t));
+
 	}
 }

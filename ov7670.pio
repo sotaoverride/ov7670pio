@@ -24,6 +24,8 @@ wait 1 pin PIN_OFFS_VSYNC     ; Wait for VSYNC to go high, signalling frame star
 loop_byte:
 wait 0 pin PIN_OFFS_PCLK      ; Wait for PCLK to go low
 wait 1 pin PIN_OFFS_PCLK      ; Wait for PCLK to go high (rising edge)
+wait 0 pin PIN_OFFS_PCLK      ; Wait for PCLK to go low
+wait 1 pin PIN_OFFS_PCLK      ; Wait for PCLK to go high (rising edge)
 in PINS 8                     ; Shift in 1 byte of data
 jmp x-- loop_byte             ;next byte
 .wrap
