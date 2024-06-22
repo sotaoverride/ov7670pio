@@ -6,7 +6,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-
+#include <string.h>
 #include "hardware/i2c.h"
 #include "hardware/pio.h"
 #include "hardware/dma.h"
@@ -84,10 +84,13 @@ int main() {
 	const uint16_t height = CAMERA_HEIGHT_DIV8;
 
 	//Now setup your own PIO!!
-/*	uint sm = 0;
+	uint sm = 0;
 	uint dma_chan = 0;
 	uint offset = pio_add_program(CAMERA_PIO, &ov7670_program);
 	pio_sm_config c = pio_get_default_sm_config();
+	sm_config_set_in_pins(&c, CAMERA_BASE_PIN);
+	sm_config_set_wrap(&c, offset, offset);
+	//sm_config_set_clkdiv(&c, 1.f);
 	camera_pio_init_gpios(CAMERA_PIO, sm, CAMERA_BASE_PIN);
 	pio_sm_set_enabled(CAMERA_PIO, sm, false);
 	uint8_t *capture_buf = malloc(176*1*30*sizeof(uint8_t));
@@ -104,21 +107,24 @@ int main() {
 
 	dma_channel_configure(dma_chan, &cd,
 			capture_buf,        // Destination pointer
-			&CAMERA_PIO->rxf[sm],      // Source pointer
-			176*1*30*sizeof(uint8_t), // Number of transfers
+			&pio0->rxf[sm],      // Source pointer
+			50, // Number of transfers
 			true                // Start immediately
 			);
-	//pio_sm_init(CAMERA_PIO, sm, offset, &c);
-	//pio_sm_set_enabled(CAMERA_PIO, sm, true);
+	pio_sm_init(CAMERA_PIO, sm, offset, &c);
+	pio_sm_set_enabled(CAMERA_PIO, sm, true);
 
-*/	while (1) {
-		//printf("Capturing...\n");
+	while (1) {
+		printf ("%s\n", "dump bytes read from d0 to d7....");
 		gpio_put(LED_PIN, 1);
-		//pio_sm_put_blocking(CAMERA_PIO, sm, width - 1);
-		//pio_sm_put_blocking(CAMERA_PIO, sm, height -1);
-		sleep_ms(10000);
+		pio_sm_put_blocking(CAMERA_PIO, sm, width);
+		pio_sm_put_blocking(CAMERA_PIO, sm, height);
+		sleep_ms(3000);
 		gpio_put(LED_PIN, 0);
-		//printf(capture_buf[0]"\n");
-
+		sleep_ms(3000);
+		int i;
+		for (i=0;i<50;i++) {
+	    		printf(" byte %d = value: %d\n", i , capture_buf[i]);
+		}
 	}
 }
