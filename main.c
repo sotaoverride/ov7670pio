@@ -35,6 +35,14 @@ static inline int __i2c_read_blocking(void *i2c_handle, uint8_t addr, uint8_t *d
 // From http://www.paulbourke.net/dataformats/asciiart/
 const char charmap[] = " .:-=+*#%@";
 OV7670_status status;
+	static inline uint8_t bits_packed_per_word(uint8_t pin_count) {
+    	// If the number of pins to be sampled divides the shift register size, we
+    	// can use the full SR and FIFO width, and push when the input shift count
+    	// exactly reaches 32. If not, we have to push earlier, so we use the FIFO
+    	// a little less efficiently.
+    	const uint SHIFT_REG_WIDTH = 32;
+    	return SHIFT_REG_WIDTH - (SHIFT_REG_WIDTH % pin_count);
+	}
 
 int main() {
 	stdio_init_all();
@@ -70,51 +78,35 @@ int main() {
 		printf("camera_init failed: %d\n", ret);
 		return 1;
 	}
-	//unclaim all DMA chans uncles code might have claimed....
 
-	dma_unclaim_mask (0x0000000f);
-
-	//clear all of PIOs setup by uncle (and their SMs as a result off)
 
 	pio_clear_instruction_memory (CAMERA_PIO);
 
 	const uint16_t width = CAMERA_WIDTH_DIV8;
 	const uint16_t height = CAMERA_HEIGHT_DIV8;
+	uint8_t dma_chan;
 
-	//Now setup your own PIO!!
-	uint sm = 0;
-	uint dma_chan = 0;
-	uint offset = pio_add_program(CAMERA_PIO, &ov7670_program);
-	pio_sm_config c = pio_get_default_sm_config();
-	sm_config_set_in_pins(&c, CAMERA_BASE_PIN);
-	sm_config_set_wrap(&c, offset, offset);
-	//sm_config_set_clkdiv(&c, 1.f);
-	camera_pio_init_gpios(CAMERA_PIO, sm, CAMERA_BASE_PIN);
-	pio_sm_set_enabled(CAMERA_PIO, sm, false);
-	uint8_t *capture_buf = malloc(width*height*sizeof(uint8_t));
-	hard_assert(capture_buf);
-	// Need to clear _input shift counter_, as well as FIFO, because there may be
-	// partial ISR contents left over from a previous run. sm_restart does this.
-	pio_sm_clear_fifos(CAMERA_PIO, sm);
-	pio_sm_restart(CAMERA_PIO, sm);
-
-	dma_channel_config cd = dma_channel_get_default_config(dma_chan);
-	channel_config_set_read_increment(&c, false);
-	channel_config_set_write_increment(&c, true);
-	channel_config_set_dreq(&c, pio_get_dreq(CAMERA_PIO, sm, false));
-
-	dma_channel_configure(dma_chan, &cd,
-			capture_buf,        // Destination pointer
-			&pio0->rxf[sm],      // Source pointer
-			1, // Number of transfers
-			true                // Start immediately
-			);
-	pio_sm_init(CAMERA_PIO, sm, offset, &c);
-	pio_sm_set_enabled(CAMERA_PIO, sm, true);
+	uint8_t capture_buf [width*height];
 
 	uint8_t pattern[] =  " .:!()/|}-=+*#%@";
+	int sm = 0;
+	uint8_t offset = pio_add_program(CAMERA_PIO, &ov7670_program);
+	dma_channel_config cd = dma_channel_get_default_config(dma_chan);
+	pio_sm_init(CAMERA_PIO, sm, offset, &cd);
+	pio_sm_set_enabled(CAMERA_PIO, sm, true);
 	while (1) {
-		printf ("%s\n", "dump bytes read from d0 to d7....");
+		pio_sm_clear_fifos(CAMERA_PIO, sm);
+		pio_sm_restart(CAMERA_PIO, sm);
+		memset(capture_buf, 0, width*height*sizeof(uint8_t));
+		channel_config_set_dreq(&cd, pio_get_dreq(CAMERA_PIO, sm, false));
+		dma_channel_configure(dma_chan, &cd,
+			capture_buf,        // Destination pointer
+			&pio0->rxf[sm],      // Source pointer
+			height*width, // Number of transfers
+			true                // Start immediately
+			);
+
+		printf ("%s\n", "dump bytes read from d0 to d7*....");
 		sleep_ms(1000);
 		gpio_put(LED_PIN, 1);
 		pio_sm_put_blocking(CAMERA_PIO, sm, width);
@@ -122,34 +114,18 @@ int main() {
 		sleep_ms(3000);
 		gpio_put(LED_PIN, 0);
 		sleep_ms(3000);
-		//dma_channel_wait_for_finish_blocking(0);
+		dma_channel_wait_for_finish_blocking(dma_chan);
 		int i;
 		for(i=0;i<height;i++){
 
 			for (int j=0;j<width;j++) {
-				printf("%c", pattern[capture_buf[(i*width)+j] >> 4] );
+				printf("%c", pattern[capture_buf[(i*width)+j] /26] );
 				//printf(" byte %d = value: %d\n", i , capture_buf[i]);
 			}
 			printf("%s\n", "");
 		}
-		pio_sm_clear_fifos(CAMERA_PIO, sm);
-		pio_sm_restart(CAMERA_PIO, sm);
-
-		dma_unclaim_mask (0x0000000f);
-		dma_channel_config cd = dma_channel_get_default_config(dma_chan);
-		channel_config_set_read_increment(&c, false);
-		channel_config_set_write_increment(&c, true);
-		channel_config_set_dreq(&c, pio_get_dreq(CAMERA_PIO, sm, false));
-	dma_channel_configure(dma_chan, &cd,
-			capture_buf,        // Destination pointer
-			&pio0->rxf[sm],      // Source pointer
-			1, // Number of transfers
-			true                // Start immediately
-			);
-	pio_sm_init(CAMERA_PIO, sm, offset, &c);
-	pio_sm_set_enabled(CAMERA_PIO, sm, true);
-	free(capture_buf);
-	capture_buf = malloc(width*height*sizeof(uint8_t));
+		dma_unclaim_mask (dma_chan);
+		
 
 	}
 }

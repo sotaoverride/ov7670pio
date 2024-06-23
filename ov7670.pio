@@ -9,27 +9,6 @@
 .define PUBLIC PIN_OFFS_HREF     9
 .define PUBLIC PIN_OFFS_PCLK    10
 
-.program ov7670_
-
-; Repeatedly get one word of data from the TX FIFO, stalling when the FIFO is
-; empty. Write the least significant bit to the OUT pin group.
-.wrap_target
-pull
-out Y,32
-;pull
-
-wait 1 pin PIN_OFFS_VSYNC     ; Wait for VSYNC to go high, signalling frame start
-
-
-loop_byte:
-wait 0 pin PIN_OFFS_PCLK      ; Wait for PCLK to go low
-wait 1 pin PIN_OFFS_PCLK      ; Wait for PCLK to go high (rising edge)
-wait 0 pin PIN_OFFS_PCLK      ; Wait for PCLK to go low
-wait 1 pin PIN_OFFS_PCLK      ; Wait for PCLK to go high (rising edge)
-in PINS 8                     ; Shift in 1 byte of data
-jmp x-- loop_byte             ;next byte
-.wrap
-
 .program ov7670
 .wrap_target
 pull                          ; Pull number of lines from FIFO
@@ -43,6 +22,8 @@ mov X, OSR                    ; Reload X with bytes-per-line
 wait 1 pin PIN_OFFS_HREF      ; Wait for start of line
 
 loop_byte:                    ; For each byte in line
+wait 0 pin PIN_OFFS_PCLK      ; Wait for PCLK to go low
+wait 1 pin PIN_OFFS_PCLK      ; Wait for PCLK to go high (rising edge)
 wait 0 pin PIN_OFFS_PCLK      ; Wait for PCLK to go low
 wait 1 pin PIN_OFFS_PCLK      ; Wait for PCLK to go high (rising edge)
 in PINS 8                     ; Shift in 1 byte of data
