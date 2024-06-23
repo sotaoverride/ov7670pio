@@ -98,7 +98,6 @@ int main() {
 	pio_sm_clear_fifos(CAMERA_PIO, sm);
 	pio_sm_restart(CAMERA_PIO, sm);
 	channel_config_set_dreq(&cd, pio_get_dreq(CAMERA_PIO, sm, false));
-	memset(capture_buf, 0, width*height*sizeof(uint8_t));
 	dma_channel_configure(dma_chan, &cd,
 			capture_buf,        // Destination pointer
 			&pio0->rxf[sm],      // Source pointer
