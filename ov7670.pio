@@ -10,7 +10,7 @@
 .define PUBLIC PIN_OFFS_PCLK    10
 
 .program ov7670
-.wrap_target
+;.wrap_target
 pull                          ; Pull number of lines from FIFO
 out Y, 32                     ; Store number of lines in Y
 pull                          ; Pull bytes-per-line from FIFO
@@ -24,16 +24,17 @@ wait 1 pin PIN_OFFS_HREF      ; Wait for start of line
 loop_byte:                    ; For each byte in line
 wait 0 pin PIN_OFFS_PCLK      ; Wait for PCLK to go low
 wait 1 pin PIN_OFFS_PCLK      ; Wait for PCLK to go high (rising edge)
-wait 0 pin PIN_OFFS_PCLK      ; Wait for PCLK to go low
-wait 1 pin PIN_OFFS_PCLK      ; Wait for PCLK to go high (rising edge)
-in PINS 8                     ; Shift in 1 byte of data
+;wait 0 pin PIN_OFFS_PCLK      ; Wait for PCLK to go low
+;wait 1 pin PIN_OFFS_PCLK      ; Wait for PCLK to go high (rising edge)
+;in PINS 8
+mov isr, pins                     ; Shift in 1 byte of data
 jmp x-- loop_byte             ; Next byte
 
 wait 0 pin PIN_OFFS_HREF      ; Wait for end of line
-
+push
 jmp y-- loop_line             ; Next line
 
-.wrap                         ; Next frame
+;.wrap                         ; Next frame
 
 % c-sdk {
 static inline void camera_pio_init_gpios(PIO pio, uint sm, uint base_pin)
