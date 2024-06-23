@@ -120,8 +120,8 @@ int main() {
 	printf ("%s\n", "dump bytes read from d0 to d7*....");
 	sleep_ms(1000);
 	gpio_put(LED_PIN, 1);
-	pio_sm_put_blocking(CAMERA_PIO, sm, 4);
 	pio_sm_put_blocking(CAMERA_PIO, sm, 1);
+	pio_sm_put_blocking(CAMERA_PIO, sm, 4);
 	sleep_ms(3000);
 	gpio_put(LED_PIN, 0);
 	sleep_ms(3000);
